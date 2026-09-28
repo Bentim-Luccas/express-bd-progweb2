@@ -6,7 +6,7 @@ class AlunoRepository {
 
     async findAll() {
         const [rows] = await pool.execute(
-            'SELECT id, nome, curso FROM alunos ORDER BY id'
+            'SELECT id, nome, curso_id FROM alunos ORDER BY id'
         )
 
         return rows;
@@ -14,37 +14,37 @@ class AlunoRepository {
 
     async findById(id) {
         const [rows] = await pool.execute(
-            'SELECT id, nome, curso FROM alunos WHERE id = ?',
+            'SELECT id, nome, curso_id FROM alunos WHERE id = ?',
             [id] 
         )
 
         return rows[0] ?? null // Retorna o primeiro elemento de rows. Se ele não existir, retorna null.
     }
 
-    async create({ nome, curso }) {
+    async create({ nome, curso_id }) {
         const [result] = await pool.execute(
             `
-            INSERT INTO alunos (nome, curso)
+            INSERT INTO alunos (nome, curso_id)
             VALUES (?, ?)
             `,
-            [nome, curso]
+            [nome, curso_id]
         )
 
         return {
             id: result.insertId,  // id é auto incrementado
             nome,
-            curso
+            curso_id
         }
     }
 
-    async update(id, { nome, curso }) {
+    async update(id, { nome, curso_id }) {
         const [result] = await pool.execute(
             `
             UPDATE alunos
-            SET nome = ?, curso = ?
+            SET nome = ?, curso_id = ?
             WHERE id = ?
             `,
-            [nome, curso, id]
+            [nome, curso_id, id]
         )
 
         if (result.affectedRows === 0) { // Se for 0 é porque o id não foi encontrado

@@ -1,6 +1,7 @@
 // Controller: responsável por lidar com a requisição HTTP e definir a resposta ao cliente.
 
 import alunoRepository from "../repositories/AlunoRepository.js";
+import alunoService from "../services/AlunoService.js";
 
 class AlunoController {
 
@@ -25,12 +26,18 @@ class AlunoController {
     }
 
     async store(req, res) {
-        const { nome, curso } = req.body // Obtém "nome" e "curso" enviados no corpo da requisição
+        const { nome, curso_id } = req.body // Obtém "nome" e "curso_id" enviados no corpo da requisição
 
-        const aluno = await alunoRepository.create({
+        const aluno = await alunoService.cadastrar({
             nome,
-            curso
+            curso_id
         })
+
+        if (!aluno) {
+            return res.status(404).json({
+                mensagem: 'Curso não encontrado'
+            })
+        }
 
         return res
             .location(`/alunos/${aluno.id}`) // Informa a URL onde o novo aluno pode ser encontrado
