@@ -1,57 +1,59 @@
-# API REST com Express e MySQL — Alunos, Cursos e Service
+# API REST de Alunos e Cursos — Express + MySQL
 
-**Projeto:** `express-bd-progweb2`  
-**Atividade:** Complemento da aula de 25/08 — Cursos e Regras de Negócio  
-**Branch:** `branch_20260825_extra`  
-**Disciplina:** Programação Web 2 — Senac RJ
+> **Projeto:** `express-bd-progweb2`  
+> **Disciplina:** Programação Web 2 — Senac RJ  
+> **Versão documentada:** `master` (projeto consolidado)  
+> **Cliente HTTP para testes:** Insomnia
 
 ## 1. Descrição
 
-Evolução da API REST desenvolvida com Node.js, Express e MySQL. Além do CRUD de alunos, esta etapa adiciona o CRUD de cursos e introduz uma camada **Service** no cadastro de alunos para verificar a existência do curso informado. O modelo de aluno muda: deixa de utilizar o texto `curso` e passa a armazenar a referência numérica `curso_id`.
+Este projeto acadêmico implementa uma API REST para o gerenciamento de **alunos** e **cursos**, utilizando Node.js, Express e MySQL. Ele reúne o resultado final das atividades de conexão com o banco de dados, implementação de CRUD e organização do backend em camadas.
 
-Este README descreve o código efetivamente presente na branch, inclusive diferenças entre o comportamento pretendido e limitações ainda existentes.
+A API disponibiliza endpoints HTTP para consultar, cadastrar, atualizar e excluir registros. Cada aluno possui um `curso_id`, que representa o curso ao qual está associado. O servidor utiliza um pool de conexões e verifica o acesso ao MySQL antes de começar a receber requisições.
 
 ## 2. Funcionalidades
 
-- Listar, consultar, cadastrar, atualizar e excluir cursos.
-- Listar, consultar, cadastrar, atualizar e excluir alunos por meio de consultas MySQL.
-- Relacionar o aluno a um curso por `curso_id` nos métodos de acesso a dados.
-- Verificar se um curso existe antes de cadastrar um aluno, por meio de `AlunoService.cadastrar()`.
-- Iniciar o servidor HTTP apenas depois de confirmar a conexão com MySQL.
-- Disponibilizar coleções de requisições HTTP no Bruno para alunos e cursos.
+- Cadastro, listagem, consulta por ID, atualização e exclusão de cursos.
+- Cadastro, listagem, consulta por ID, atualização e exclusão de alunos.
+- Relacionamento lógico de aluno com curso pelo campo `curso_id`.
+- Regra de negócio no cadastro de alunos: consultar se o curso informado existe.
+- Operações de persistência por instruções SQL parametrizadas.
+- Códigos de resposta HTTP para sucesso e registros não encontrados.
+- Verificação inicial da disponibilidade do MySQL.
+- Testes manuais dos endpoints com o **Insomnia**.
 
-**Ressalva:** a atualização de alunos e o tratamento de erro para curso inexistente possuem inconsistências identificadas na implementação atual; consulte as seções 12 e 16.
+**Limitações conhecidas:** a versão atual apresenta uma incompatibilidade de campos no endpoint de atualização de alunos e não converte adequadamente a exceção de curso inexistente em uma resposta HTTP específica. Esses pontos são detalhados nas seções 12 e 16.
 
 ## 3. Tecnologias Utilizadas
 
-- **Node.js** com ES Modules, `--watch` e `--env-file`.
-- **Express 5** para rotas e respostas HTTP.
-- **MySQL 8.4** para armazenamento relacional.
-- **mysql2/promise** e pool de conexões para execução de SQL.
-- **Docker Compose** para inicializar o serviço MySQL no ambiente didático.
-- **Bruno** para coleções de testes manuais.
-- **npm** para gerenciamento de dependências.
+| Tecnologia | Utilização |
+|---|---|
+| Node.js | Execução do backend com JavaScript e ES Modules |
+| Express 5 | Servidor HTTP, rotas e respostas REST |
+| MySQL 8.4 | Persistência relacional |
+| mysql2/promise | Pool de conexões e consultas SQL assíncronas |
+| Docker Compose | Infraestrutura local do banco de dados |
+| npm | Gerenciamento de dependências e scripts |
+| Insomnia | Envio e inspeção de requisições HTTP |
+| Git e GitHub | Controle de versões e organização das atividades |
 
-Dependências declaradas: `express` `^5.2.1`, `mysql2` `^3.23.4`, `nodemon` `^3.1.14` como dependência de desenvolvimento (não utilizado nos scripts atuais).
+O `package.json` também declara o `nodemon` como dependência de desenvolvimento, mas os scripts atuais usam a opção nativa `node --watch`.
 
 ## 4. Arquitetura e Organização do Projeto
+
+Estrutura da versão final, **após a retirada das antigas coleções de teste**:
 
 ```text
 express-bd-progweb2/
 ├── .env.example
 ├── .gitignore
+├── README.md
 ├── docker-compose.yml
 ├── package.json
 ├── package-lock.json
-├── bruno/
-│   ├── API Alunos/
-│   └── Cursos/
 └── src/
     ├── app.js
     ├── server.js
-    ├── routes/
-    │   ├── alunos.routes.js
-    │   └── cursos.routes.js
     ├── controllers/
     │   ├── AlunoController.js
     │   └── CursoController.js
@@ -60,212 +62,355 @@ express-bd-progweb2/
     ├── repositories/
     │   ├── AlunoRepository.js
     │   └── CursoRepository.js
+    ├── routes/
+    │   ├── alunos.routes.js
+    │   └── cursos.routes.js
     └── database/
         └── pool.js
 ```
 
-Fluxos principais:
+**Papel dos arquivos e camadas:**
+
+- **`src/server.js`:** verifica a conexão com o banco e inicia o servidor HTTP.
+- **`src/app.js`:** cria a aplicação Express, habilita o processamento de JSON e registra os grupos de rotas.
+- **Routes:** associam métodos e caminhos HTTP às funções dos Controllers.
+- **Controllers:** recebem `req`, acessam parâmetros e corpo da requisição e constroem as respostas `res`.
+- **Service:** concentra a regra de existência do curso durante o cadastro de aluno.
+- **Repositories:** executam instruções SQL para persistir e consultar dados.
+- **`database/pool.js`:** configura um pool de conexões MySQL com `mysql2/promise`.
+
+Fluxo da consulta de um curso:
 
 ```text
-GET /cursos → Route → CursoController → CursoRepository → MySQL
-
-POST /alunos → Route → AlunoController → AlunoService
-                                   ├── CursoRepository (verifica o curso)
-                                   └── AlunoRepository (insere o aluno)
+Insomnia → Express → cursos.routes.js → CursoController
+                                             ↓
+                                       CursoRepository
+                                             ↓
+                                       Pool → MySQL
 ```
 
-As outras operações de alunos ainda chamam `AlunoRepository` diretamente do Controller; a Service atua especificamente no cadastro.
+Fluxo do cadastro de aluno:
+
+```text
+POST /alunos → alunos.routes.js → AlunoController.store()
+                                         ↓
+                                  AlunoService.cadastrar()
+                                      ├── CursoRepository.findById()
+                                      └── AlunoRepository.create()
+                                                ↓
+                                               MySQL
+```
+
+A camada **Service** é usada especificamente no cadastro de alunos. Os outros métodos do `AlunoController` acessam o Repository diretamente.
 
 ## 5. Pré-requisitos
 
-- Node.js compatível com `--env-file` (recomenda-se Node.js 20.6+), npm e acesso a MySQL.
-- Docker/Compose opcional para iniciar o MySQL segundo o arquivo versionado.
-- Banco `api_rest` com tabelas **`cursos`** e **`alunos`** compatíveis com as queries dos Repositories.
-- Credenciais de acesso ao banco.
+- Node.js com suporte a `--env-file` (Node.js 20.6 ou superior) e npm.
+- Git, para clonar e atualizar o projeto.
+- MySQL acessível; o ambiente didático foi configurado para MySQL 8.4.
+- Docker e Docker Compose, **se** o MySQL for executado pelo container descrito no repositório.
+- Insomnia para testar as requisições HTTP.
+- Banco de dados `api_rest` contendo tabelas compatíveis com o código atual: `cursos` e `alunos`.
 
-**Importante:** o repositório não contém migrations ou arquivo SQL que configure automaticamente o novo esquema de alunos/cursos. A criação/adequação das tabelas é uma preparação separada.
+O projeto **não** possui scripts de migration nem mecanismo que crie automaticamente as tabelas da versão final.
 
 ## 6. Instalação
+
+Clone o repositório e utilize a versão consolidada:
 
 ```bash
 git clone https://github.com/Bentim-Luccas/express-bd-progweb2.git
 cd express-bd-progweb2
-git switch branch_20260825_extra
+git switch master
 npm ci
 ```
 
+O comando `npm ci` instala as dependências com base no arquivo `package-lock.json`.
+
 ## 7. Configuração das Variáveis de Ambiente
 
-No Windows (CMD):
+Crie um arquivo `.env` a partir do exemplo. No CMD do Windows:
 
 ```cmd
 copy .env.example .env
 ```
 
-Exemplo para banco local:
+Em Linux/macOS:
+
+```bash
+cp .env.example .env
+```
+
+Para o ambiente **didático** definido no `docker-compose.yml`, utilize:
 
 ```dotenv
 PORT=3000
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=api_user
-DB_PASSWORD=<senha_do_mysql_local>
+DB_PASSWORD=api123
 DB_NAME=api_rest
 ```
 
-Ajustar `DB_USER` e `DB_PASSWORD` aos valores da instância MySQL. As credenciais do Compose são apenas didáticas; `.env` não deve ser versionado.
+- `PORT`: porta HTTP da API.
+- `DB_HOST` e `DB_PORT`: localização do servidor MySQL acessível pelo Node.js.
+- `DB_USER` e `DB_PASSWORD`: credenciais do banco.
+- `DB_NAME`: banco de dados utilizado pela aplicação.
+
+Essas credenciais são exemplos de desenvolvimento e **não devem ser usadas em produção**. O arquivo `.env` é ignorado pelo Git e não deve ser versionado.
 
 ## 8. Execução do Projeto
 
-Com Docker disponível, iniciar a infraestrutura:
+### 8.1 Iniciar o MySQL
+
+Com Docker disponível e autorizado, na raiz do projeto:
 
 ```bash
 docker compose up -d
 docker compose ps
 ```
 
-**Antes da API:** garantir que o MySQL contém as tabelas esperadas (`cursos` com `id` e `nome`; `alunos` com `id`, `nome` e `curso_id`). O `docker-compose.yml` cria o banco `api_rest`, mas não cria automaticamente essas tabelas.
+O Compose define um container chamado `mysql-api-rest`, a imagem `mysql:8.4`, a porta `3306` e um volume nomeado para persistência.
 
-Iniciar a API:
+**Atenção:** o Compose cria o banco `api_rest` na primeira inicialização do volume, mas **não cria as tabelas** `alunos` e `cursos`.
+
+Para entrar no MySQL:
+
+```bash
+docker exec -it mysql-api-rest mysql -u root -p
+```
+
+A senha de exemplo para o usuário `root` está no arquivo Compose. Dentro do cliente MySQL:
+
+```sql
+USE api_rest;
+SHOW TABLES;
+```
+
+Se as tabelas não existirem, uma definição *de referência*, compatível com as operações dos Repositories, é:
+
+```sql
+CREATE TABLE cursos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE alunos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    curso_id INT NOT NULL,
+    CONSTRAINT fk_alunos_cursos
+        FOREIGN KEY (curso_id) REFERENCES cursos(id)
+);
+```
+
+**Não execute os `CREATE TABLE` se já existirem tabelas com esses nomes.** Se o volume contiver a estrutura das aulas anteriores (`alunos.curso` como texto), será necessário conferir o esquema antes de modificá-lo. A chave estrangeira acima é uma sugestão de estrutura; não há migration versionada que comprove sua existência no banco utilizado anteriormente.
+
+### 8.2 Iniciar a API
 
 ```bash
 npm run dev
 ```
 
-Ou, sem monitoramento de alterações:
+Para iniciar sem monitoramento de arquivos:
 
 ```bash
 npm start
 ```
 
-O script carrega `.env` e executa `src/server.js`. O servidor testa `SELECT 1` antes de chamar `app.listen()`. Portanto, sem conexão com o MySQL ele não inicia o HTTP.
+O `src/server.js` executa `SELECT 1` no MySQL antes de chamar `app.listen()`. Se a conexão falhar, a API encerra sua execução e não abre a porta HTTP. Se a conexão funcionar, o endereço padrão é `http://localhost:3000`.
+
+> A consulta `SELECT 1` verifica a conectividade do banco, **não** a existência das tabelas ou o sucesso das operações CRUD.
 
 ## 9. Endpoints da API
 
-| Método | Endpoint | Operação | Resposta de sucesso |
+URL-base local: `http://localhost:3000`.
+
+| Método | Endpoint | Finalidade | Status de sucesso esperado |
 |---|---|---|---|
-| `GET` | `/` | Status básico da API | `200` |
-| `GET` | `/alunos` | Listar alunos | `200` |
-| `GET` | `/alunos/:id` | Consultar aluno | `200` |
-| `POST` | `/alunos` | Cadastrar aluno vinculado a curso | `201` |
-| `PUT` | `/alunos/:id` | Atualizar aluno | `200`* |
-| `DELETE` | `/alunos/:id` | Excluir aluno | `204` |
+| `GET` | `/` | Confirmar resposta HTTP da aplicação | `200` |
 | `GET` | `/cursos` | Listar cursos | `200` |
 | `GET` | `/cursos/:id` | Consultar curso | `200` |
-| `POST` | `/cursos` | Cadastrar curso | `201` |
+| `POST` | `/cursos` | Criar curso | `201` |
 | `PUT` | `/cursos/:id` | Atualizar curso | `200` |
 | `DELETE` | `/cursos/:id` | Excluir curso | `204` |
+| `GET` | `/alunos` | Listar alunos | `200` |
+| `GET` | `/alunos/:id` | Consultar aluno | `200` |
+| `POST` | `/alunos` | Criar aluno associado a curso | `201` |
+| `PUT` | `/alunos/:id` | Atualizar aluno | `200`* |
+| `DELETE` | `/alunos/:id` | Excluir aluno | `204` |
 
-*O `PUT /alunos/:id` tem incompatibilidade de campos entre Controller e Repository; pode falhar na prática (seção 12). Operações por ID retornam `404` quando o recurso não existe, conforme os Controllers, exceto por falhas não tratadas.
+`GET`, `PUT` e `DELETE` por ID contemplam resposta `404` para registros ausentes conforme a implementação dos Controllers, ressalvadas falhas não tratadas. *O `PUT /alunos/:id` apresenta uma incompatibilidade de campos na versão atual.*
 
 ## 10. Exemplos de Requisição e Resposta
 
-**POST `/cursos`:**
+### Criar um curso
+
+**POST** `http://localhost:3000/cursos` — JSON:
 
 ```json
-{"nome":"ADS"}
+{
+  "nome": "Engenharia de Software"
+}
 ```
 
-Resposta ilustrativa (`201 Created`):
+Exemplo de resposta, **201 Created**:
 
 ```json
-{"id":1,"nome":"ADS"}
+{
+  "id": 1,
+  "nome": "Engenharia de Software"
+}
 ```
 
-**POST `/alunos`:** agora o corpo esperado pelo código utiliza `curso_id`:
+### Cadastrar um aluno no curso
+
+**POST** `http://localhost:3000/alunos` — JSON:
 
 ```json
-{"nome":"Mônica","curso_id":1}
+{
+  "nome": "Camila Oliveira",
+  "curso_id": 1
+}
 ```
 
-Se o curso existir e a inserção funcionar, exemplo de resposta `201 Created`:
+Exemplo de resposta, **201 Created**, desde que o curso exista:
 
 ```json
-{"id":5,"nome":"Mônica","curso_id":1}
+{
+  "id": 1,
+  "nome": "Camila Oliveira",
+  "curso_id": 1
+}
 ```
 
-Os identificadores exibidos são exemplos e dependem dos dados existentes no MySQL.
+O identificador do aluno é gerado pelo MySQL, via `AUTO_INCREMENT`; ele **não** precisa ser informado no POST.
 
-**GET `/alunos/5`:** retorna `{ "id": 5, "nome": "Mônica", "curso_id": 1 }` se o registro existir.
+### Consultar e excluir
 
-**DELETE `/cursos/1`:** em caso de sucesso, retorna `204 No Content`. O resultado depende das restrições de integridade referencial configuradas no banco.
+- **GET** `/alunos/1`: devolve o aluno cadastrado, se existir, com status `200`.
+- **GET** `/alunos/99999`: se não existir, o Controller devolve `404` e `{ "mensagem": "Aluno não encontrado" }`.
+- **DELETE** `/alunos/1`: quando a exclusão funciona, retorna `204 No Content`, sem corpo.
+
+Os IDs mostrados são ilustrativos e dependem dos registros existentes no MySQL.
 
 ## 11. Autenticação
 
-Não há autenticação, perfis, autorização ou JWT nesta branch acadêmica.
+Não existe implementação de login, autenticação, JWT, controle de perfis ou autorização nesta versão acadêmica. As rotas não possuem middleware de autenticação.
 
 ## 12. Tratamento de Erros
 
-- Consulta, edição ou exclusão de aluno/curso inexistente: os Controllers possuem caminhos de retorno `404`.
-- Falha de conexão inicial com o MySQL: `server.js` registra o erro e encerra o processo.
-- Falhas SQL e payloads inválidos: não há middleware dedicado de validação e tratamento específico para todos os casos.
-- **Curso inexistente no cadastro de aluno:** `AlunoService.cadastrar()` executa `throw new Error(...)` quando o curso não existe, enquanto `AlunoController.store()` verifica `if (!aluno)` depois de `await`. Essa verificação não captura a exceção. Como o projeto utiliza Express 5, a rejeição pode ser encaminhada ao tratamento padrão de erro e resultar em HTTP `500`, em vez do `404` pretendido.
-- **Atualização de aluno:** o Controller extrai `{ nome, curso }`, mas `AlunoRepository.update()` espera `{ nome, curso_id }`. Como consequência, o campo `curso_id` chega como `undefined` ao driver, e a atualização pode falhar.
+- **Registro inexistente:** os Controllers retornam `404` para buscas, atualizações ou exclusões sem resultado, quando o Repository conclui a operação normalmente.
+- **Banco indisponível ao iniciar:** o `server.js` registra a falha de conexão e encerra o processo.
+- **Curso inexistente no cadastro de aluno:** `AlunoService.cadastrar()` lança `Error`, mas `AlunoController.store()` verifica `if (!aluno)` após o `await`; a exceção não chega a essa condição. No Express 5, esse erro tende a ser encaminhado ao tratamento de erros padrão, em vez de produzir o `404` pretendido.
+- **Atualização de aluno:** o Controller extrai `nome` e `curso` do corpo, enquanto `AlunoRepository.update()` espera `nome` e `curso_id`. A divergência pode causar falha do driver ao receber `undefined` em `curso_id`.
+- **Erros de validação e banco:** ainda não há validação sistemática dos dados de entrada, nem um middleware de erros personalizado para todos os casos.
 
-Esses pontos são **limitações reais do código**, não correções já aplicadas.
+As falhas acima são limitações **identificadas no código**, não correções já implementadas.
 
 ## 13. Testes
 
-Há coleções Bruno em `bruno/API Alunos/` e `bruno/Cursos/`. Não existe suíte de testes automatizados ou script `npm test` funcional nesta branch.
+Os testes da API são realizados manualmente por meio do **Insomnia**, sem depender de uma pasta de coleções versionada no repositório.
 
-Sequência recomendada para teste manual com o banco preparado:
+### Preparação
 
-1. Criar um curso por `POST /cursos` e consultar por `GET /cursos`.
-2. Criar um aluno por `POST /alunos` usando o `curso_id` retornado.
-3. Conferir `GET /alunos` e `GET /alunos/:id`.
-4. Testar casos inexistentes (`GET /cursos/999`, `GET /alunos/999`).
-5. Testar o comportamento do cadastro com `curso_id` inexistente e registrar o status efetivo.
-6. Verificar separadamente a atualização de alunos e as restrições de exclusão com relacionamentos.
+1. Confirme que o MySQL está acessível, com as tabelas esperadas.
+2. Configure o `.env` e execute `npm run dev`.
+3. Crie uma coleção no Insomnia chamada `API Express — Alunos e Cursos`.
+4. Defina `http://localhost:3000` como endereço-base das requisições.
+5. Para POST/PUT, selecione corpo JSON e informe `Content-Type: application/json`.
 
-**Atenção:** os arquivos Bruno de alunos mantêm exemplos antigos com `curso` textual e, no POST, um `id` enviado pelo cliente. Para esta branch, o corpo correto do cadastro é `{ "nome": "...", "curso_id": <id_existente> }`, sem `id`.
+### Roteiro recomendado
 
-Sem MySQL disponível, `node --check` verifica apenas a sintaxe dos arquivos, não o funcionamento das operações SQL.
+| Ordem | Requisição | Verificação |
+|---|---|---|
+| 1 | `GET /` | API responde `200` |
+| 2 | `POST /cursos` | Curso criado; guardar `id` retornado |
+| 3 | `GET /cursos` | Curso consta da listagem |
+| 4 | `POST /alunos` com `curso_id` existente | Aluno criado (`201`) |
+| 5 | `GET /alunos` | Aluno consta da listagem |
+| 6 | `GET /alunos/:id` | Busca individual funciona |
+| 7 | `GET /alunos/99999` | Recurso inexistente retorna `404` |
+| 8 | `PUT /cursos/:id` | Curso atualizado (`200`) |
+| 9 | `DELETE /alunos/:id` | Aluno removido (`204`) |
+| 10 | `DELETE /cursos/:id` | Curso removido (`204`) se não houver restrição de integridade impedindo |
+
+O `PUT /alunos/:id` e o cadastro com `curso_id` inexistente devem ser avaliados considerando os problemas documentados na seção 12. O repositório não inclui testes automatizados nem script `npm test` funcional. A execução real do banco e dos endpoints deve ser validada em um ambiente com MySQL disponível.
 
 ## 14. Documentação da API
 
-As rotas são definidas em `src/routes/` e demonstradas na coleção Bruno. Não há Swagger/OpenAPI.
+Este README centraliza a documentação das funcionalidades, rotas, exemplos e procedimentos de teste da versão final do projeto. O código dos endpoints pode ser consultado nos arquivos de `src/routes/` e nos respectivos Controllers.
+
+Não foi implementada interface Swagger, especificação OpenAPI ou documentação automática de API.
 
 ## 15. Modelo de Dados
 
-Os Repositories pressupõem estas estruturas:
+Os Repositories utilizam as seguintes estruturas lógicas:
 
-| Tabela | Campos acessados no código | Papel |
+| Entidade | Campo | Finalidade |
 |---|---|---|
-| `cursos` | `id`, `nome` | Cadastro dos cursos |
-| `alunos` | `id`, `nome`, `curso_id` | Cadastro dos alunos e referência ao curso |
+| Curso | `id` | Identificador numérico gerado pelo MySQL |
+| Curso | `nome` | Nome do curso |
+| Aluno | `id` | Identificador numérico gerado pelo MySQL |
+| Aluno | `nome` | Nome do aluno |
+| Aluno | `curso_id` | Referência ao identificador do curso |
 
-O relacionamento lógico é `alunos.curso_id → cursos.id`. A **existência de uma chave estrangeira declarada no MySQL não pode ser confirmada apenas pelo repositório**: não há scripts SQL/migrations versionados nesta branch. Uma relação de FK é recomendável para garantir integridade no banco.
+Relacionamento lógico: **um curso pode possuir vários alunos; cada aluno pertence a um curso**.
 
-Na branch anterior, alunos tinham a coluna textual `curso`; nesta etapa, o SQL foi alterado para `curso_id`, portanto um banco criado com a tabela antiga precisa de adequação de esquema antes da execução integral.
+```text
+CURSOS (id, nome)
+     1
+     │
+     └──────── N
+              ALUNOS (id, nome, curso_id)
+```
+
+A existência de uma **restrição `FOREIGN KEY` efetiva** depende da configuração do banco: o repositório não fornece migrations ou DDL oficial versionado para comprová-la. O exemplo SQL da seção 8 apresenta uma estrutura compatível para um banco novo.
 
 ## 16. Regras de Negócio
 
-- O novo cadastro de aluno recebe `nome` e `curso_id`.
-- `AlunoService.cadastrar()` consulta `CursoRepository.findById(curso_id)` antes de inserir o aluno.
-- Se o curso existir, `AlunoRepository.create()` executa o `INSERT` na tabela `alunos`.
-- Se o curso não existir, a Service lança uma exceção; o Controller ainda não transforma corretamente esse caso em `404`.
-- O MySQL gera os IDs automaticamente; o Repository usa `insertId` e `affectedRows`.
-- Não foram implementadas validações formais de nome, IDs e relacionamentos no código da API.
+- O cadastro de aluno exige, pela intenção do código, a referência a um curso já existente.
+- O `AlunoService.cadastrar()` consulta o curso com `CursoRepository.findById()` antes da inserção.
+- Os Repositories usam SQL parametrizado com `?`, enviando valores separadamente da instrução.
+- Os identificadores são gerados pelo banco nos cadastros, e `result.insertId` é utilizado para construir a resposta.
+- `result.affectedRows` auxilia a identificar atualizações e exclusões sem registro correspondente.
+- Os Controllers definem os códigos HTTP; os Repositories não recebem `req` nem `res`.
+
+**Pontos pendentes:** corrigir o tratamento de curso inexistente e alinhar `curso_id` entre Controller e Repository na atualização do aluno. Não existem validações completas de tipos e campos obrigatórios no backend.
 
 ## 17. Extras — Programação Web 2
 
-Evoluções em relação à branch de 25/08:
+Este projeto consolida os assuntos trabalhados nas atividades:
 
-- CRUD completo de `cursos` com Routes, Controller e Repository próprios.
-- Introdução de `AlunoService.js` para uma regra de negócio que envolve duas entidades.
-- Substituição de `alunos.curso` por `alunos.curso_id`.
-- Importação e montagem da rota `/cursos` em `src/app.js`.
-- Exemplos de requisições Bruno para cursos.
-- Discussão prática sobre tratamento de erros assíncronos, consistência do payload e integridade referencial.
+- **18/08/2026:** introdução ao MySQL 8.4 com Docker Compose e volume persistente, mantendo inicialmente o CRUD em memória.
+- **21/08/2026:** configuração do `mysql2`, pool de conexões, `.env` e teste de conexão antes de iniciar o servidor HTTP.
+- **25/08/2026:** organização do CRUD de alunos em Routes, Controllers e Repositories com persistência SQL.
+- **25/08/2026 — atividade extra:** CRUD de cursos, campo `curso_id` e Service com verificação de curso no cadastro de aluno.
+
+Conceitos revisados: API REST, métodos HTTP, códigos de status, ES Modules, operações assíncronas, parametrização SQL, persistência relacional, relações entre entidades e separação de responsabilidades.
 
 ## 18. Versionamento e Organização das Branches
 
-Esta branch representa a atividade complementar de 25/08 (`branch_20260825_extra`), posterior à `branch_20260825`. O projeto utiliza branches por data (`branch_yyyymmdd`) e realiza merges para manter a `master` atualizada. O README desta branch deve refletir a versão de alunos e cursos, sem reescrever a documentação das branches anteriores.
+As atividades foram desenvolvidas e preservadas em branches com referência às datas das aulas:
+
+| Branch | Conteúdo principal |
+|---|---|
+| `branch_20260818` | Docker Compose e introdução ao MySQL |
+| `branch_20260821` | Conexão da API com MySQL por meio de `mysql2` |
+| `branch_20260825` | CRUD de alunos em arquitetura em camadas |
+| `branch_20260825_extra` | CRUD de cursos e regra de negócio em Service |
+| `master` | **Versão final consolidada e documentada neste README** |
+
+A `master` é a referência para execução e avaliação do projeto completo. O histórico das atividades pode ser consultado nas demais branches, enquanto este README descreve a **versão final**, sem repetir a documentação por aula.
 
 ## 19. Autor
 
-Projeto acadêmico baseado nas atividades da disciplina Programação Web 2 — Senac RJ. Repositório: [Bentim-Luccas/express-bd-progweb2](https://github.com/Bentim-Luccas/express-bd-progweb2).
+Repositório acadêmico: [Bentim-Luccas](https://github.com/Bentim-Luccas/express-bd-progweb2).
+
+Desenvolvido no contexto da unidade curricular Programação Web 2 do Senac RJ, a partir das atividades e orientações da disciplina.
 
 ## 20. Licença e Uso Acadêmico
 
-O `package.json` indica licença `ISC`, sem arquivo `LICENSE` independente nesta branch. Material de finalidade acadêmica; reutilizações devem respeitar a autoria dos tutoriais e de eventuais colaboradores.
+O arquivo `package.json` declara a licença `ISC`. Esta aplicação foi elaborada para fins de estudo e demonstração de conceitos de desenvolvimento web e acesso a dados.
+
+Os exemplos de credenciais são restritos ao ambiente didático; para ambientes reais, são necessários cuidados adicionais com segurança, validação, tratamento de erros, configuração do banco e gestão de segredos.
